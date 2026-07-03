@@ -1,14 +1,15 @@
-#!/usr/bin/env node
+﻿#!/usr/bin/env node
 
 import clipboardy from 'clipboardy';
 import chalk from 'chalk';
-import { parseArguments } from './cli';
+import { parseArguments } from './cli.js';
 import {
   compilePatterns,
   resolveFiles,
   searchFile,
-} from './search';
-import { renderResults, renderSummary, renderLegend, renderHelp } from './render';
+} from './search.js';
+import { renderResults, renderSummary, renderLegend, renderHelp } from './render.js';
+import type { SearchResult } from './types.js';
 
 /**
  * Main entry point.
@@ -48,8 +49,8 @@ async function main() {
 
     // Search all files
     const results = files
-      .map((file) => searchFile(file, compiledPatterns, options))
-      .filter((r) => r !== null) as typeof import('./types').SearchResult[];
+      .map((file: string) => searchFile(file, compiledPatterns, options))
+      .filter((r: SearchResult | null): r is SearchResult => r !== null);
 
     // Render output
     if (results.length === 0) {
@@ -68,7 +69,7 @@ async function main() {
     console.log(resultText);
 
     // Summary
-    const totalMatches = results.reduce((sum, r) => sum + r.matchCount, 0);
+    const totalMatches = results.reduce((sum: number, r: SearchResult) => sum + r.matchCount, 0);
     const summary = renderSummary(totalMatches, files.length, results.length);
     console.log(`\n${summary}`);
 

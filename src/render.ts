@@ -1,6 +1,6 @@
-import chalk from 'chalk';
-import { CliOptions, SearchResult, PatternWithRegex, MatchLocation } from './types';
-import { findMatches } from './search';
+﻿import chalk from 'chalk';
+import { CliOptions, SearchResult, PatternWithRegex, MatchLocation } from './types.js';
+import { findMatches } from './search.js';
 
 const COLORS = [
   chalk.green,

@@ -1,18 +1,19 @@
-import { Command } from 'commander';
-import { CliOptions } from './types';
+﻿import { Command as CommanderCommand } from 'commander';
+import { CliOptions } from './types.js';
 
 /**
  * Build Commander.js command tree.
  * Maps PowerShell flags to modern CLI conventions.
  */
-export function createCommand(): Command {
-  const cmd = new Command();
+export function createCommand(): CommanderCommand {
+  const cmd = new CommanderCommand();
 
   cmd
     .name('query')
     .description('Search file content with surrounding context lines')
     .version('1.0.0')
-    .argument('[pattern...]', 'Search pattern(s) — regex by default')
+    .argument('[pattern]', 'Search pattern(s) — regex by default')
+    .argument('[paths...]', 'Files, directories, or glob patterns')
     .option('-r, --recurse', 'Recurse into subdirectories', false)
     .option('-s, --sensitive', 'Case-sensitive match', false)
     .option('-x, --fixed', 'Literal string match (no regex)', false)
@@ -28,57 +29,55 @@ export function createCommand(): Command {
     .option('--no-line-numbers', 'Hide line numbers', false)
     .option('--no-match-marker', 'Hide match markers', false)
     .option('-c, --clipboard', 'Copy results to clipboard', false)
-    .option('-t, --trace', 'Enable diagnostic trace', false)
-    .allowUnknownOption() // Allow path arguments
-    .passThroughOptions();
+    .option('-t, --trace', 'Enable diagnostic trace', false);
 
   return cmd;
 }
 
 /**
  * Parse command-line arguments into CliOptions.
- * [heuristic] Positional args after first pattern are treated as paths.
+ * [derived] Commander.js now separates pattern (arg 0), paths (args 1+), and options automatically.
  */
 export function parseArguments(argv: string[]): {
   options: CliOptions;
   patterns: string[];
   paths: string[];
 } {
-  const cmd = createCommand();
-  const parsed = cmd.parse(argv, { from: 'user' });
-  const opts = parsed.opts();
+  const command = createCommand();
+  const parsed = command.parse(argv, { from: 'user' });
+  const opts = parsed.opts() as Record<string, unknown>;
 
-  // Extract patterns from positional args
-  const patterns: string[] = parsed.args.filter(
-    (arg, i) => i === 0 || !arg.startsWith('-')
-  );
+  // Commander now correctly populates parsed.args with only positional args (pattern + paths)
+  // pattern is args[0], paths are args[1+]
+  const allArgs = parsed.args;
+  const pattern = allArgs.length > 0 ? allArgs[0] : '';
+  const paths = allArgs.length > 1 ? allArgs.slice(1) : [];
 
-  // Extract paths (args after patterns)
-  const paths: string[] = parsed.args.slice(patterns.length);
+  const patterns = pattern ? [pattern] : [];
 
   // Handle symmetric context
-  const symmetric = parseInt(opts.symmetric, 10);
-  const ctxBefore = symmetric >= 0 ? symmetric : parseInt(opts.before, 10) || 0;
-  const ctxAfter = symmetric >= 0 ? symmetric : parseInt(opts.after, 10) || 0;
+  const symmetric = parseInt(String(opts.symmetric), 10);
+  const ctxBefore = symmetric >= 0 ? symmetric : parseInt(String(opts.before), 10) || 0;
+  const ctxAfter = symmetric >= 0 ? symmetric : parseInt(String(opts.after), 10) || 0;
 
   const options: CliOptions = {
     pattern: patterns,
     paths: paths.length > 0 ? paths : ['.'],
-    recursive: opts.recurse,
-    caseSensitive: opts.sensitive,
-    fixedString: opts.fixed,
+    recursive: Boolean(opts.recurse),
+    caseSensitive: Boolean(opts.sensitive),
+    fixedString: Boolean(opts.fixed),
     contextBefore: ctxBefore,
     contextAfter: ctxAfter,
-    includeGlob: opts.include,
-    excludeGlob: opts.exclude,
-    skipBlank: opts.skipBlank,
-    listFiles: opts.list,
-    maxPerFile: parseInt(opts.max, 10) || 0,
+    includeGlob: String(opts.include),
+    excludeGlob: String(opts.exclude),
+    skipBlank: Boolean(opts.skipBlank),
+    listFiles: Boolean(opts.list),
+    maxPerFile: parseInt(String(opts.max), 10) || 0,
     noColor: !opts.color,
     noLineNumbers: !opts.lineNumbers,
     noMatchMarker: !opts.matchMarker,
-    clipboard: opts.clipboard,
-    trace: opts.trace,
+    clipboard: Boolean(opts.clipboard),
+    trace: Boolean(opts.trace),
   };
 
   return { options, patterns, paths };

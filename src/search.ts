@@ -1,4 +1,4 @@
-import fs from 'fs';
+﻿import fs from 'fs';
 import path from 'path';
 import { globbySync } from 'globby';
 import {
@@ -7,7 +7,7 @@ import {
   SearchResult,
   ContextBlock,
   MatchLocation,
-} from './types';
+} from './types.js';
 
 /**
  * Compile patterns into RegExp objects; auto-escape if invalid regex.
@@ -63,17 +63,32 @@ export function resolveFiles(
   }
 
   const globPatterns = paths.flatMap((p) => {
+    // Detect glob metacharacters: if present, treat as a glob pattern
+    const hasGlobChars = /[*?[\]{}]/.test(p);
+    
+    if (hasGlobChars) {
+      // Glob pattern: resolve relative to cwd, but preserve the pattern syntax
+      return path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
+    }
+
+    // Not a glob: check if it's an existing directory
     const abs = path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
-    // If directory, append glob pattern
     if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
       return options.recursive ? `${abs}/**/*` : `${abs}/*`;
     }
+
+    // File path (or non-existent path): return as-is
     return abs;
   });
 
+  // Normalize all patterns to forward slashes (globby requirement on Windows)
+  const normalizedPatterns = globPatterns.map((p) =>
+    p.replace(/\\/g, '/')
+  );
+
   let files: string[];
   try {
-    files = globbySync(globPatterns, {
+    files = globbySync(normalizedPatterns, {
       onlyFiles: true,
       absolute: true,
       gitignore: false,
