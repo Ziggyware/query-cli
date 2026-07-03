@@ -63,21 +63,21 @@ query "SELECT" . -r --include "*.sql" -c
 
 ## Features
 
-âœ… **Regex patterns** â€” Full ECMAScript regex support (auto-escapes invalid patterns)  
-âœ… **Color output** â€” 6-color cycle for pattern highlighting  
-âœ… **Context blocks** â€” Merges adjacent windows; `--` separates gaps  
-âœ… **File filtering** â€” Include/exclude globs  
-âœ… **Clipboard** â€” Copy full results to clipboard  
-âœ… **Fast** â€” Parallel file I/O via Globby  
-âœ… **Cross-platform** â€” Windows, macOS, Linux  
+**Regex patterns** Full ECMAScript regex support (auto-escapes invalid patterns)  
+**Color output** 6-color cycle for pattern highlighting  
+**Context blocks** Merges adjacent windows; `--` separates gaps  
+**File filtering** Include/exclude globs  
+**Clipboard** Copy full results to clipboard  
+**Fast** Parallel file I/O via Globby  
+**Cross-platform** Windows, macOS, Linux  
 
 ## Architecture
 
-- `src/types.ts` â€” Shared interfaces
-- `src/search.ts` â€” File resolution & regex engine
-- `src/cli.ts` â€” Commander.js CLI setup
-- `src/render.ts` â€” Color output & formatting
-- `src/index.ts` â€” Main entry point
+- `src/types.ts` Shared interfaces
+- `src/search.ts` File resolution & regex engine
+- `src/cli.ts` Commander.js CLI setup
+- `src/render.ts` Color output & formatting
+- `src/index.ts` Main entry point
 
 ## Development
 
