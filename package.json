@@ -1,0 +1,28 @@
+﻿{
+  "name": "query-cli",
+  "version": "1.0.0",
+  "description": "Modern file content search with context, regex, and fancy CLI output",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "query": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "node dist/index.js --help"
+  },
+  "keywords": ["search", "grep", "cli", "context"],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "chalk": "^5.3.0",
+    "clipboardy": "^4.0.0",
+    "commander": "^12.1.0",
+    "globby": "^14.3.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.5.0",
+    "typescript": "^5.5.4"
+  }
+}
