@@ -25,9 +25,9 @@ export function createCommand(): CommanderCommand {
     .option('-m, --max <n>', 'Stop after n matches per file', '0')
     .option('-i, --include <glob>', 'Only files matching glob', '*')
     .option('-e, --exclude <glob>', 'Skip files matching glob', '')
-    .option('--no-color', 'Disable color output', false)
-    .option('--no-line-numbers', 'Hide line numbers', false)
-    .option('--no-match-marker', 'Hide match markers', false)
+    .option('--no-color', 'Disable color output')
+    .option('--no-line-numbers', 'Hide line numbers')
+    .option('--no-match-marker', 'Hide match markers')
     .option('-c, --clipboard', 'Copy results to clipboard', false)
     .option('-t, --trace', 'Enable diagnostic trace', false);
 

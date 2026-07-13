@@ -9,24 +9,18 @@ import {
   MatchLocation,
 } from './types.js';
 
-/**
- * Compile patterns into RegExp objects; auto-escape if invalid regex.
- * [heuristic] Invalid patterns fall back to literal string match.
- */
 export function compilePatterns(
   patterns: string[],
   options: CliOptions
 ): PatternWithRegex[] {
-  const regexOpts = options.caseSensitive ? '' : 'i';
+  const regexOpts = options.caseSensitive ? 'g' : 'gi';
 
   return patterns.map((original, index) => {
     let pattern = original;
 
-    // Auto-escape if fixed string mode
     if (options.fixedString) {
       pattern = escapeRegex(pattern);
     } else {
-      // Try to compile; fall back to literal if invalid
       try {
         new RegExp(pattern, regexOpts);
       } catch {
@@ -42,18 +36,10 @@ export function compilePatterns(
   });
 }
 
-/**
- * Escape regex metacharacters for literal string matching.
- * [derived] Standard regex escape.
- */
 function escapeRegex(str: string): string {
   return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-/**
- * Resolve file paths from glob patterns and filters.
- * [heuristic] Globby handles most patterns; manual filtering for include/exclude.
- */
 export function resolveFiles(
   paths: string[],
   options: CliOptions
@@ -63,25 +49,26 @@ export function resolveFiles(
   }
 
   const globPatterns = paths.flatMap((p) => {
-    // Detect glob metacharacters: if present, treat as a glob pattern
     const hasGlobChars = /[*?[\]{}]/.test(p);
-    
+
     if (hasGlobChars) {
-      // Glob pattern: resolve relative to cwd, but preserve the pattern syntax
-      return path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
+      const base = path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
+      if (options.recursive) {
+        const dir = path.dirname(base);
+        const glob = path.basename(base);
+        return `${dir}/**/${glob}`;
+      }
+      return base;
     }
 
-    // Not a glob: check if it's an existing directory
     const abs = path.isAbsolute(p) ? p : path.resolve(process.cwd(), p);
     if (fs.existsSync(abs) && fs.statSync(abs).isDirectory()) {
       return options.recursive ? `${abs}/**/*` : `${abs}/*`;
     }
 
-    // File path (or non-existent path): return as-is
     return abs;
   });
 
-  // Normalize all patterns to forward slashes (globby requirement on Windows)
   const normalizedPatterns = globPatterns.map((p) =>
     p.replace(/\\/g, '/')
   );
@@ -93,12 +80,12 @@ export function resolveFiles(
       absolute: true,
       gitignore: false,
       suppressErrors: true,
+      ignore: ['**/node_modules/**', '**/dist/**', '**/.git/**'],
     });
   } catch {
     return [];
   }
 
-  // Apply include/exclude filters
   if (options.includeGlob !== '*') {
     files = files.filter((f) => f.includes(options.includeGlob));
   }
@@ -106,13 +93,9 @@ export function resolveFiles(
     files = files.filter((f) => !f.includes(options.excludeGlob));
   }
 
-  return [...new Set(files)]; // Deduplicate
+  return [...new Set(files)];
 }
 
-/**
- * Search a single file for all pattern matches and build context blocks.
- * [failure-mode] File encoding issues caught; defaults to UTF-8.
- */
 export function searchFile(
   file: string,
   patterns: PatternWithRegex[],
@@ -132,9 +115,9 @@ export function searchFile(
 
   const matchLineIndices: number[] = [];
 
-  // Find all matching lines
   for (let i = 0; i < lines.length; i++) {
     for (const pattern of patterns) {
+      pattern.regex.lastIndex = 0;
       if (pattern.regex.test(lines[i])) {
         matchLineIndices.push(i);
         break;
@@ -149,7 +132,6 @@ export function searchFile(
     return null;
   }
 
-  // Build context blocks (merge adjacent windows)
   const blocks = buildContextBlocks(
     matchLineIndices,
     lines.length,
@@ -158,7 +140,7 @@ export function searchFile(
   );
 
   const cwd = process.cwd();
-  const relPath = path.relative(cwd, file);
+  const relPath = file.replace(cwd, '').replace(/^\\/, '');
 
   return {
     file,
@@ -169,10 +151,6 @@ export function searchFile(
   };
 }
 
-/**
- * Build context blocks from match line indices.
- * [derived] Window merging logic: adjacent/overlapping contexts combine.
- */
 function buildContextBlocks(
   matchIndices: number[],
   totalLines: number,
@@ -194,11 +172,9 @@ function buildContextBlocks(
     const nEnd = Math.min(totalLines - 1, ml + ctxAfter);
 
     if (nStart <= wEnd + 1) {
-      // Overlap: merge
       if (nEnd > wEnd) wEnd = nEnd;
       wSet.add(ml);
     } else {
-      // Gap: finalize block and start new one
       blocks.push({ start: wStart, end: wEnd, matchSet: new Set(wSet) });
       wStart = nStart;
       wEnd = nEnd;
@@ -211,10 +187,6 @@ function buildContextBlocks(
   return blocks;
 }
 
-/**
- * Find all match locations within a line (for highlighting).
- * [derived] Merge overlapping matches; preserve earliest pattern index for color.
- */
 export function findMatches(
   line: string,
   patterns: PatternWithRegex[]
@@ -222,6 +194,7 @@ export function findMatches(
   const matches: MatchLocation[] = [];
 
   for (const pattern of patterns) {
+    pattern.regex.lastIndex = 0;
     for (const m of line.matchAll(pattern.regex)) {
       matches.push({
         start: m.index ?? 0,
@@ -233,10 +206,8 @@ export function findMatches(
 
   if (matches.length === 0) return [];
 
-  // Sort by start index
   matches.sort((a, b) => a.start - b.start);
 
-  // Merge overlaps
   const merged: MatchLocation[] = [];
   let cur = matches[0];
 

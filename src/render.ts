@@ -53,11 +53,6 @@ export function renderResults(
             lines.push(chalk.gray(`${prefix}${lineText}`));
           }
         }
-
-        // Separator between blocks (if not the last block)
-        if (block !== result.blocks[result.blocks.length - 1]) {
-          lines.push(chalk.gray('--'));
-        }
       }
     }
   }
