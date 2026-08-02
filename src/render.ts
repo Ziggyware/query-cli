@@ -136,19 +136,7 @@ export function renderSummary(
   return `${chalk.bold(totalMatches)} ${mw} in ${chalk.bold(filesMatched)} ${fw}`;
 }
 
-export function renderLegend(patterns: PatternWithRegex[]): string {
-  if (patterns.length === 0) return '';
 
-  const lines = [chalk.white.bold('Match Color Legend:')];
-  for (const pattern of patterns) {
-    const colorFn = COLORS[pattern.index % COLORS.length];
-    lines.push(
-      `  Pattern ${pattern.index}: ${colorFn.bold(pattern.original)}`
-    );
-  }
-
-  return lines.join('\n');
-}
 
 export function renderHelp(): string {
   return `
@@ -168,7 +156,7 @@ query — File Content Search with Context
   CONTEXT
     -y, --symmetric <n>         Symmetric context: n lines before and after
     -b, --before <n>            Lines of context before each match
-    -a, --after <n>             Lines of context after each match
+    -f, --after <n>             Lines of context after each match
     Adjacent or overlapping windows are merged; -- separates gaps.
 
   SEARCH
@@ -183,6 +171,7 @@ query — File Content Search with Context
   OUTPUT
     --no-color                  Disable color output
     -c, --clipboard             Copy results to clipboard
+    -a, --append		Append to clipboard
     --no-line-numbers           Disable line numbers
     --no-match-marker           Disable match marker
     -k, --skip-blank            Skip blank lines

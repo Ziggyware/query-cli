@@ -11,31 +11,37 @@ import {
 import { renderResults, renderSummary, renderLegend, renderHelp } from './render.js';
 import type { SearchResult } from './types.js';
 
+let lock: Promise<unknown> = Promise.resolve();
 
-let lock = Promise.resolve();
-
-function atomicWrite(text) {
-  lock = lock.then(() => clipboard.write(text));
-  return lock;
+function atomicWrite(text: string): Promise<string> {
+  const result = lock.then(async () => {
+    await clipboardy.write(text);
+    return text;
+  });
+  lock = result.catch(() => {}); // keep chain alive even if this op rejects
+  return result;
 }
 
-function atomicRead() {
-  lock = lock.then(() => clipboard.read());
-  return lock;
+function atomicRead(): Promise<string> {
+  const result = lock.then(async () => {
+    return await clipboardy.read();
+  });
+  lock = result.catch(() => {});
+  return result;
 }
 
-export function atomicAppend(value) {
-  const op = async () => {
-    let current = await clipboard.read();
+function atomicAppend(value: string): Promise<string> {
+  const result = lock.then(async () => {
+    let current = await clipboardy.read();
     if (!current) current = "";
     const next = (current + "\n" + value).trim();
-    await clipboard.write(next);
+    await clipboardy.write(next);
     return next;
-  };
-
-  lock = lock.then(op, op);
-  return lock;
+  });
+  lock = result.catch(() => {});
+  return result;
 }
+
 
 /**
  * Main entry point.

@@ -22,7 +22,7 @@ export function createCommand(): CommanderCommand {
     .option('-l, --list', 'Print only matching filenames', false)
     .option('-k, --skip-blank', 'Skip blank lines', false)
     .option('-b, --before <n>', 'Lines of context before match', '0')
-    .option('-a, --after <n>', 'Lines of context after match', '0')
+    .option('-f, --after <n>', 'Lines of context after match', '0')
     .option('-y, --symmetric <n>', 'Symmetric context (before & after)', '-1')
     .option('-m, --max <n>', 'Stop after n matches per file', '0')
     .option('-i, --include <glob>', 'Only files matching glob', '*')
