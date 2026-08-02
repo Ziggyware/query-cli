@@ -1,4 +1,7 @@
+﻿// origin -> single-pattern positional parse -> multi-pattern heuristic split (rev 1)
 ﻿import { Command as CommanderCommand } from 'commander';
+import fs from 'fs';
+import path from 'path';
 import { CliOptions } from './types.js';
 
 /**
@@ -12,8 +15,7 @@ export function createCommand(): CommanderCommand {
     .name('query')
     .description('Search file content with surrounding context lines')
     .version('1.0.0')
-    .argument('[pattern]', 'Search pattern(s) — regex by default')
-    .argument('[paths...]', 'Files, directories, or glob patterns')
+    .argument('[args...]', 'Search pattern(s), then file/directory paths — e.g. "public private *.cs"')
     .option('-r, --recurse', 'Recurse into subdirectories', false)
     .option('-s, --sensitive', 'Case-sensitive match', false)
     .option('-x, --fixed', 'Literal string match (no regex)', false)
@@ -29,14 +31,61 @@ export function createCommand(): CommanderCommand {
     .option('--no-line-numbers', 'Hide line numbers')
     .option('--no-match-marker', 'Hide match markers')
     .option('-c, --clipboard', 'Copy results to clipboard', false)
-    .option('-t, --trace', 'Enable diagnostic trace', false);
+    .option('-a, --append', 'Append to clipboard', false)
+    .option('-t, --trace', 'Enable diagnostic trace', false)
+    .option('--animate', 'Enable scan animation', false);
 
   return cmd;
 }
 
 /**
+ * [heuristic] Determines whether a positional arg is a path/glob rather than
+ * a search pattern: contains a path separator, a glob metacharacter, is
+ * "." / "..", or resolves to an existing filesystem entry relative to cwd.
+ * Failure mode: a pattern string that collides with an existing file/dir
+ * name in cwd is misclassified as a path.
+ */
+function isPathLike(arg: string): boolean {
+  if (arg.includes('/') || arg.includes('\\')) return true;
+  if (/[*?[\]{}]/.test(arg)) return true;
+  if (arg === '.' || arg === '..') return true;
+  try {
+    const abs = path.isAbsolute(arg) ? arg : path.resolve(process.cwd(), arg);
+    if (fs.existsSync(abs)) return true;
+  } catch {
+    // unreadable path segment — not path-like by this check
+  }
+  return false;
+}
+
+/**
+ * Splits the flat positional-arg list into (patterns, paths).
+ * [derived] First path-like arg marks the boundary; everything before it
+ * is a pattern. A lone positional arg is always treated as a pattern
+ * (never a bare path with zero patterns) since a search requires ≥1 pattern.
+ */
+function splitPatternsAndPaths(allArgs: string[]): { patterns: string[]; paths: string[] } {
+  if (allArgs.length === 0) return { patterns: [], paths: [] };
+
+  let splitIndex = allArgs.findIndex(isPathLike);
+
+  if (splitIndex === -1) {
+    splitIndex = allArgs.length; // no path-like arg: everything is a pattern, default path '.'
+  } else if (splitIndex === 0) {
+    splitIndex = allArgs.length > 1 ? 1 : allArgs.length; // first arg forced to pattern role
+  }
+
+  return {
+    patterns: allArgs.slice(0, splitIndex),
+    paths: allArgs.slice(splitIndex),
+  };
+}
+
+/**
  * Parse command-line arguments into CliOptions.
- * [derived] Commander.js now separates pattern (arg 0), paths (args 1+), and options automatically.
+ * [derived] Commander's `.args` returns the flat list of raw positional
+ * strings regardless of variadic grouping in the argument() definition;
+ * pattern/path separation is done manually via splitPatternsAndPaths.
  */
 export function parseArguments(argv: string[]): {
   options: CliOptions;
@@ -47,13 +96,9 @@ export function parseArguments(argv: string[]): {
   const parsed = command.parse(argv, { from: 'user' });
   const opts = parsed.opts() as Record<string, unknown>;
 
-  // Commander now correctly populates parsed.args with only positional args (pattern + paths)
-  // pattern is args[0], paths are args[1+]
   const allArgs = parsed.args;
-  const pattern = allArgs.length > 0 ? allArgs[0] : '';
-  const paths = allArgs.length > 1 ? allArgs.slice(1) : [];
-
-  const patterns = pattern ? [pattern] : [];
+  const { patterns, paths: rawPaths } = splitPatternsAndPaths(allArgs);
+  const paths = rawPaths.length > 0 ? rawPaths : ['.'];
 
   // Handle symmetric context
   const symmetric = parseInt(String(opts.symmetric), 10);
@@ -62,7 +107,7 @@ export function parseArguments(argv: string[]): {
 
   const options: CliOptions = {
     pattern: patterns,
-    paths: paths.length > 0 ? paths : ['.'],
+    paths,
     recursive: Boolean(opts.recurse),
     caseSensitive: Boolean(opts.sensitive),
     fixedString: Boolean(opts.fixed),
@@ -77,7 +122,8 @@ export function parseArguments(argv: string[]): {
     noLineNumbers: !opts.lineNumbers,
     noMatchMarker: !opts.matchMarker,
     clipboard: Boolean(opts.clipboard),
-    trace: Boolean(opts.trace),
+    append: Boolean(opts.append),
+    trace: Boolean(opts.trace)
   };
 
   return { options, patterns, paths };

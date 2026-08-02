@@ -11,10 +11,31 @@ const COLORS = [
   chalk.red,
 ];
 
-/**
- * Render search results to console with colors and context.
- * [heuristic] Multiple patterns cycle through color palette.
- */
+export function renderScanLine(fileName: string, animate: boolean): void {
+  if (!animate) return; // || !process.stdout.isTTY) return;
+  process.stdout.write(`\r${chalk.gray('Scanning')} ${chalk.dim(fileName)}...`);
+}
+
+export function clearScanLine(animate: boolean): void {
+  if (!animate || !process.stdout.isTTY) return;
+  process.stdout.clearLine(0);
+  process.stdout.cursorTo(0);
+}
+
+export async function animateMatchCount(count: number, animate: boolean): Promise<void> {
+  if (!animate || !process.stdout.isTTY || count === 0) {
+    if (count > 0) process.stdout.write(chalk.bold(String(count)));
+    return;
+  }
+  const steps = Math.min(count, 12);
+  for (let i = 1; i <= steps; i++) {
+    const val = Math.round((i / steps) * count);
+    process.stdout.write(`\r${chalk.bold(String(val))}`);
+    await new Promise((r) => setTimeout(r, 18));
+  }
+  process.stdout.write(`\r${chalk.bold(String(count))}`);
+}
+
 export function renderResults(
   results: SearchResult[],
   patterns: PatternWithRegex[],
@@ -23,14 +44,12 @@ export function renderResults(
   const lines: string[] = [];
 
   if (options.listFiles) {
-    // List-only mode: filenames only
     for (const result of results) {
       lines.push(chalk.cyan(result.relPath));
     }
   } else {
-    // Full mode: results with context
     for (const result of results) {
-      lines.push(chalk.cyan(`File: ${result.relPath}`));
+      lines.push(chalk.bold.cyan(`File: ${result.relPath}`));
 
       for (const block of result.blocks) {
         for (let li = block.start; li <= block.end; li++) {
@@ -40,9 +59,12 @@ export function renderResults(
 
           const lineNumStr = options.noLineNumbers
             ? ''
-            : lineNum.toString().padStart(4);
-          const marker =
-            options.noMatchMarker || !isMatch ? ' ' : isMatch ? '+' : ' ';
+            : chalk.dim.gray(lineNum.toString().padStart(4));
+          const marker = options.noMatchMarker
+            ? ' '
+            : isMatch
+              ? chalk.bold('+')
+              : ' ';
           const prefix = options.noLineNumbers
             ? ''
             : `${lineNumStr}${marker} `;
@@ -53,6 +75,7 @@ export function renderResults(
             lines.push(chalk.gray(`${prefix}${lineText}`));
           }
         }
+
       }
     }
   }
@@ -60,10 +83,6 @@ export function renderResults(
   return lines.join('\n');
 }
 
-/**
- * Colorize a line with pattern matches highlighted.
- * [derived] Merge overlapping matches; cycle pattern colors.
- */
 function colorizeMatch(
   lineText: string,
   patterns: PatternWithRegex[],
@@ -77,26 +96,23 @@ function colorizeMatch(
   const matches = findMatches(lineText, patterns);
 
   if (matches.length === 0) {
-    return prefix + chalk.gray(lineText);
+    return prefix + chalk.white(lineText);
   }
 
   let result = prefix;
   let pos = 0;
 
   for (const match of matches) {
-    // Gray text before match
     if (match.start > pos) {
       result += chalk.gray(lineText.substring(pos, match.start));
     }
 
-    // Colored match
     const colorFn = COLORS[match.patternIndex % COLORS.length];
     result += colorFn.bold(lineText.substring(match.start, match.end));
 
     pos = match.end;
   }
 
-  // Gray text after last match
   if (pos < lineText.length) {
     result += chalk.gray(lineText.substring(pos));
   }
@@ -104,10 +120,6 @@ function colorizeMatch(
   return result;
 }
 
-/**
- * Render summary line.
- * [derived] Pluralization logic.
- */
 export function renderSummary(
   totalMatches: number,
   filesSearched: number,
@@ -121,30 +133,23 @@ export function renderSummary(
 
   const mw = totalMatches === 1 ? 'match' : 'matches';
   const fw = filesMatched === 1 ? 'file' : 'files';
-  return `${totalMatches} ${mw} in ${filesMatched} ${fw}`;
+  return `${chalk.bold(totalMatches)} ${mw} in ${chalk.bold(filesMatched)} ${fw}`;
 }
 
-/**
- * Render match legend (one pattern per line with color).
- * [heuristic] Shown once at top of results.
- */
 export function renderLegend(patterns: PatternWithRegex[]): string {
   if (patterns.length === 0) return '';
 
-  const lines = [chalk.white('Match Color Legend:')];
+  const lines = [chalk.white.bold('Match Color Legend:')];
   for (const pattern of patterns) {
     const colorFn = COLORS[pattern.index % COLORS.length];
     lines.push(
-      `  Pattern ${pattern.index}: ${colorFn(pattern.original)}`
+      `  Pattern ${pattern.index}: ${colorFn.bold(pattern.original)}`
     );
   }
 
   return lines.join('\n');
 }
 
-/**
- * Render help text.
- */
 export function renderHelp(): string {
   return `
 query — File Content Search with Context
@@ -181,11 +186,12 @@ query — File Content Search with Context
     --no-line-numbers           Disable line numbers
     --no-match-marker           Disable match marker
     -k, --skip-blank            Skip blank lines
+    --animate                   Enable scan animation and count-up (TTY only)
 
   MISC
     -t, --trace                 Diagnostic trace (verbose)
     -h, --help                  Show this message
-    -V, --version               Show version
+    -V, --version                Show version
 
   EXAMPLES
     query "TODO" src/ -r -b 2 -a 2

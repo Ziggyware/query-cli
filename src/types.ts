@@ -19,6 +19,7 @@ export interface CliOptions {
   noLineNumbers: boolean;
   noMatchMarker: boolean;
   clipboard: boolean;
+  append: boolean;
   trace: boolean;
 }
 

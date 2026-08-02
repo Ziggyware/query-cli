@@ -11,6 +11,32 @@ import {
 import { renderResults, renderSummary, renderLegend, renderHelp } from './render.js';
 import type { SearchResult } from './types.js';
 
+
+let lock = Promise.resolve();
+
+function atomicWrite(text) {
+  lock = lock.then(() => clipboard.write(text));
+  return lock;
+}
+
+function atomicRead() {
+  lock = lock.then(() => clipboard.read());
+  return lock;
+}
+
+export function atomicAppend(value) {
+  const op = async () => {
+    let current = await clipboard.read();
+    if (!current) current = "";
+    const next = (current + "\n" + value).trim();
+    await clipboard.write(next);
+    return next;
+  };
+
+  lock = lock.then(op, op);
+  return lock;
+}
+
 /**
  * Main entry point.
  * [failure-mode] Missing patterns triggers help; file resolution errors logged; continues.
@@ -76,7 +102,12 @@ async function main() {
     // Clipboard
     if (options.clipboard) {
       try {
-        await clipboardy.write(resultText);
+        const plainText = resultText.replace(/\x1b\[[0-9;]*m/g, '');
+        if (options.append) {
+          await atomicAppend(plainText);
+        } else {
+          await atomicWrite(plainText);
+        }
         console.log(chalk.cyan('Results copied to clipboard'));
       } catch (err) {
         console.error(chalk.red('Failed to copy to clipboard'));
