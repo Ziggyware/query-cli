@@ -136,7 +136,24 @@ export function renderSummary(
   return `${chalk.bold(totalMatches)} ${mw} in ${chalk.bold(filesMatched)} ${fw}`;
 }
 
+/**
+ * Render the match-color legend: one line per pattern showing the color used
+ * to highlight it, so multi-pattern output can be decoded.
+ * [derived] Empty string for zero patterns; caller guards on `noColor`.
+ */
+export function renderLegend(patterns: PatternWithRegex[]): string {
+  if (patterns.length === 0) return '';
 
+  const lines = [chalk.white.bold('Match Color Legend:')];
+  for (const pattern of patterns) {
+    const colorFn = COLORS[pattern.index % COLORS.length];
+    lines.push(
+      `  Pattern ${pattern.index}: ${colorFn.bold(pattern.original)}`
+    );
+  }
+
+  return lines.join('\n');
+}
 
 export function renderHelp(): string {
   return `
